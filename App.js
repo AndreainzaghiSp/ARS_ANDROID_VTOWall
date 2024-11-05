@@ -1,25 +1,27 @@
-// App.js
-import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, Platform } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, Text, View, Alert, Platform } from 'react-native';
 import { Camera, useCameraDevices } from 'react-native-vision-camera';
+import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
 const App = () => {
-  const camera = useRef(null);
+  const [hasPermission, setHasPermission] = useState(false);
   const devices = useCameraDevices();
   const device = devices.back;
 
-  const [hasPermission, setHasPermission] = useState(false);
-
   useEffect(() => {
     const getPermissions = async () => {
-      const cameraPermission = await Camera.requestCameraPermission();
-      console.log('Camera Permission:', cameraPermission);
-      const microphonePermission = await Camera.requestMicrophonePermission();
-      console.log('Microphone Permission:', microphonePermission);
-      if (
-        cameraPermission === 'authorized' &&
-        microphonePermission === 'authorized'
-      ) {
+      const cameraStatus = await request(
+        Platform.OS === 'android'
+          ? PERMISSIONS.ANDROID.CAMERA
+          : PERMISSIONS.IOS.CAMERA
+      );
+      const microphoneStatus = await request(
+        Platform.OS === 'android'
+          ? PERMISSIONS.ANDROID.RECORD_AUDIO
+          : PERMISSIONS.IOS.MICROPHONE
+      );
+
+      if (cameraStatus === RESULTS.GRANTED && microphoneStatus === RESULTS.GRANTED) {
         setHasPermission(true);
       } else {
         Alert.alert(
@@ -32,29 +34,6 @@ const App = () => {
     getPermissions();
   }, []);
 
-  const takePhoto = async () => {
-    if (camera.current == null) return;
-
-    try {
-      const photo = await camera.current.takePhoto({
-        flash: 'auto',
-      });
-      Alert.alert('Foto Scattata!', `URI: file://${photo.path}`);
-      console.log(photo);
-    } catch (error) {
-      console.error(error);
-      Alert.alert('Errore', 'Non è stato possibile scattare la foto.');
-    }
-  };
-
-  if (device == null) {
-    return (
-      <View style={styles.container}>
-        <Text>Caricamento della fotocamera...</Text>
-      </View>
-    );
-  }
-
   if (!hasPermission) {
     return (
       <View style={styles.container}>
@@ -65,18 +44,16 @@ const App = () => {
 
   return (
     <View style={styles.container}>
-      <Camera
-        style={StyleSheet.absoluteFill}
-        device={device}
-        isActive={true}
-        photo={true}
-        ref={camera}
-      />
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity onPress={takePhoto} style={styles.button}>
-          <Text style={styles.text}>Scatta Foto</Text>
-        </TouchableOpacity>
-      </View>
+      {device != null ? (
+        <Camera
+          style={StyleSheet.absoluteFill}
+          device={device}
+          isActive={true}
+          photo={true}
+        />
+      ) : (
+        <Text>Caricamento della fotocamera...</Text>
+      )}
     </View>
   );
 };
@@ -87,23 +64,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'black',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  buttonContainer: {
-    position: 'absolute',
-    bottom: 50,
-    width: '100%',
-    alignItems: 'center',
-  },
-  button: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 50,
-    alignItems: 'center',
-    width: 100,
-  },
-  text: {
-    fontSize: 14,
-    color: '#000',
   },
 });
 
